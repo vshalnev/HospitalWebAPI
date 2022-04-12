@@ -22,7 +22,7 @@ namespace HospitalWebAPI.Controllers
         [HttpGet]
         public async Task<ActionResult<List<DoctorP>>> Get()
         {
-            var doctors = await GetSortDoctors();
+            var doctors = await GetSortDoctors<int>();
 
             return Ok(doctors);
         }
@@ -40,13 +40,67 @@ namespace HospitalWebAPI.Controllers
             return Ok(await ConverterToDoctorPAsync(doctor, cabinets, specializations, areas));
         }
 
+        [HttpGet("{pageSize}/{sortName}")]
+        public async Task<ActionResult<List<List<DoctorP>>>> Get(int pageSize, DoctorsSort sortName)
+        {
+            List<DoctorP>? doctors = new List<DoctorP>();
+            switch (sortName)
+            {
+                case DoctorsSort.Id:
+                    doctors = await GetSortDoctors<int>(r => r.Id);
+                    break;
+                case DoctorsSort.FIO:
+                    doctors = await GetSortDoctors<string>(r => r.FIO);
+                    break;
+                case DoctorsSort.Cabinet:
+                    doctors = await GetSortDoctors<string>(r => r.Cabinet);
+                    break;
+                case DoctorsSort.Specialization:
+                    doctors = await GetSortDoctors<string>(r => r.Specialization);
+                    break;
+                case DoctorsSort.Area:
+                    doctors = await GetSortDoctors<string>(r => r.Area);
+                    break;
+                default:
+                    doctors = await GetSortDoctors<int>(r => r.Id);
+                    break;
+            }
+
+            List<DoctorP> doctorsList = new();
+            List<List<DoctorP>> doctorsPages = new();
+            int nowPageSize = 0;
+            double doctorPagesCount = 0;
+            foreach (var doctor in doctors)
+            {
+                if (nowPageSize < pageSize)
+                {
+                    doctorsList.Add(doctor);
+                    nowPageSize++;
+                }
+                else
+                {
+                    nowPageSize = 0;
+                    doctorsPages.Add(doctorsList);
+                    doctorPagesCount++;
+                    doctorsList = new();
+
+                    doctorsList.Add(doctor);
+                    nowPageSize++;
+                }
+            }
+
+            if (doctorPagesCount < ((double)doctors.Count / (double)pageSize)) doctorsPages.Add(doctorsList);
+
+            return Ok(doctorsPages);
+        }
+
         [HttpPost]
         public async Task<ActionResult<Doctor>> AddDoctor(Doctor doctor)
         {
             _context.Doctors.Add(doctor);
             await _context.SaveChangesAsync();
 
-            var doctors = await GetSortDoctors();
+            var doctors = await GetSortDoctors<int>();
 
             return Ok(doctors);
         }
@@ -64,7 +118,7 @@ namespace HospitalWebAPI.Controllers
 
             await _context.SaveChangesAsync();
 
-            var doctors = await GetSortDoctors();
+            var doctors = await GetSortDoctors<int>();
 
             return Ok(doctors);
         }
@@ -78,12 +132,12 @@ namespace HospitalWebAPI.Controllers
             _context.Doctors.Remove(doctor);
             await _context.SaveChangesAsync();
 
-            var doctors = await GetSortDoctors();
+            var doctors = await GetSortDoctors<int>();
 
             return Ok(doctors);
         }
 
-        private async Task<List<DoctorP>> GetSortDoctors()
+        private async Task<List<DoctorP>> GetSortDoctors<TKey>(Func<DoctorP, TKey>? orderBy = null)
         {
             _returnDoctors = new();
             var doctors = await _context.Doctors.ToListAsync();
@@ -98,7 +152,9 @@ namespace HospitalWebAPI.Controllers
 
             var result = await Task.WhenAll(_returnDoctors);
 
-            var sortList = result.OrderBy(r => r.Id).ToList();
+            List<DoctorP>? sortList;
+            if (orderBy == null) sortList = result.OrderBy(r => r.Id).ToList();
+            else sortList = result.OrderBy(orderBy).ToList();
 
             return sortList;
         }

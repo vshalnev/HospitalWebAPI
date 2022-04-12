@@ -35,5 +35,17 @@ namespace HospitalWebAPI.Data
 		public string Gender { get; set; } = string.Empty;
 		public string Area { get; set; } = string.Empty;
 	}
+
+	public enum PatientSort
+    {
+		Id = 0,
+		LastName = 1,
+		FirstName = 2,
+		SecondName = 3,
+		Address = 4,
+		Birthday = 5,
+		Gender = 6,
+		Area = 7
+	}
 }
 

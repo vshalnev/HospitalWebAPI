@@ -22,7 +22,7 @@ namespace HospitalWebAPI.Controllers
         [HttpGet]
         public async Task<ActionResult<List<PatientP>>> Get()
         {
-            var patients = await GetSortPatients();
+            var patients = await GetSortPatients<int>();
 
             return Ok(patients);
         }
@@ -38,13 +38,76 @@ namespace HospitalWebAPI.Controllers
             return Ok(ConverterToPatientPAsync(patient, areas));
         }
 
+        [HttpGet("{pageSize}/{sortName}")]
+        public async Task<ActionResult<List<List<PatientP>>>> Get(int pageSize, PatientSort sortName)
+        {
+            List<PatientP>? patients = new List<PatientP>();
+            switch (sortName)
+            {
+                case PatientSort.Id:
+                    patients = await GetSortPatients<int>(r => r.Id);
+                    break;
+                case PatientSort.LastName:
+                    patients = await GetSortPatients<string>(r => r.LastName);
+                    break;
+                case PatientSort.FirstName:
+                    patients = await GetSortPatients<string>(r => r.FirstName);
+                    break;
+                case PatientSort.SecondName:
+                    patients = await GetSortPatients<string>(r => r.SecondName);
+                    break;
+                case PatientSort.Address:
+                    patients = await GetSortPatients<string>(r => r.Address);
+                    break;
+                case PatientSort.Birthday:
+                    patients = await GetSortPatients<string>(r => r.Birthday);
+                    break;
+                case PatientSort.Gender:
+                    patients = await GetSortPatients<string>(r => r.Gender);
+                    break;
+                case PatientSort.Area:
+                    patients = await GetSortPatients<string>(r => r.Area);
+                    break;
+                default:
+                    patients = await GetSortPatients<int>(r => r.Id);
+                    break;
+            }
+
+            List<PatientP> patientsList = new();
+            List<List<PatientP>> patientsPages = new();
+            int nowPageSize = 0;
+            double patientsPagesCount = 0;
+            foreach (var patient in patients)
+            {
+                if (nowPageSize < pageSize)
+                {
+                    patientsList.Add(patient);
+                    nowPageSize++;
+                }
+                else
+                {
+                    nowPageSize = 0;
+                    patientsPages.Add(patientsList);
+                    patientsPagesCount++;
+                    patientsList = new();
+
+                    patientsList.Add(patient);
+                    nowPageSize++;
+                }
+            }
+
+            if (patientsPagesCount < ((double)patients.Count / (double)pageSize)) patientsPages.Add(patientsList);
+
+            return Ok(patientsPages);
+        }
+
         [HttpPost]
         public async Task<ActionResult<PatientP>> AddPatient(Patient patient)
         {
             _context.Patients.Add(patient);
             await _context.SaveChangesAsync();
 
-            var patients = await GetSortPatients();
+            var patients = await GetSortPatients<int>();
 
             return Ok(patients);
         }
@@ -65,7 +128,7 @@ namespace HospitalWebAPI.Controllers
 
             await _context.SaveChangesAsync();
 
-            var patients = await GetSortPatients();
+            var patients = await GetSortPatients<int>();
 
             return Ok(patients);
         }
@@ -79,12 +142,12 @@ namespace HospitalWebAPI.Controllers
             _context.Patients.Remove(patient);
             await _context.SaveChangesAsync();
 
-            var patients = await GetSortPatients();
+            var patients = await GetSortPatients<int>();
 
             return Ok(patients);
         }
 
-        private async Task<List<PatientP>> GetSortPatients()
+        private async Task<List<PatientP>> GetSortPatients<TKey>(Func<PatientP, TKey>? orderBy = null)
         {
             _returnPatients = new();
             var patients = await _context.Patients.ToListAsync();
@@ -97,7 +160,9 @@ namespace HospitalWebAPI.Controllers
 
             var result = await Task.WhenAll(_returnPatients);
 
-            var sortList = result.OrderBy(r => r.Id).ToList();
+            List<PatientP>? sortList;
+            if (orderBy == null) sortList = result.OrderBy(r => r.Id).ToList();
+            else sortList = result.OrderBy(orderBy).ToList();
 
             return sortList;
         }

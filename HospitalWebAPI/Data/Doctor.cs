@@ -23,5 +23,14 @@ namespace HospitalWebAPI.Data
 		public string Specialization { get; set; } = string.Empty;
 		public string Area { get; set; } = string.Empty;
 	}
+
+	public enum DoctorsSort
+    {
+		Id = 0,
+		FIO = 1,
+		Cabinet = 2,
+		Specialization = 3,
+		Area = 4
+	}
 }
 
